@@ -11,11 +11,11 @@ class InputEmbeddings(nn.Module):
         self.embedding = nn.Embedding(vocab_size,d_model)
 
     def forward(self,x):
-        self.embedding(x) * math.sqrt(self.d_model)
+        return self.embedding(x) * math.sqrt(self.d_model)
 
 
 
-class PositionalEncoding(nn.modules):
+class PositionalEncoding(nn.Module):
 
     def __init__(self,d_model: int,seq_len:int, dropout:float):
         super().__init__()
@@ -23,25 +23,28 @@ class PositionalEncoding(nn.modules):
         self.seq_len=seq_len
         self.dropout = nn.Dropout(dropout)
     
-        self.pe = torch.zeros(seq_len,d_model)
-        positions = torch.range(0,seq_len,type=torch.float).unsqueeze(1) # (seq_len,1)
+        pe = torch.zeros(seq_len,d_model)
+        positions = torch.arange(0,seq_len,dtype=torch.float).unsqueeze(1) # (seq_len,1)
 
 
-        i = torch.exp(0,d_model,2).float()
+        i = torch.arange(0,d_model,2).float()
         div_term = 1.0 / (10000.0 ** (i/d_model))
 
-        self.pe[:,0::2] = torch.sin(positions * div_term)
-        self.pe[:,1::2] = torch.cos(positions * div_term)
+        pe[:,0::2] = torch.sin(positions * div_term)
+        pe[:,1::2] = torch.cos(positions * div_term)
+        pe = pe.unsqueeze(0)
 
-        self.register_buffer(self.pe)
+        self.register_buffer('pe',pe)
 
-    def forward(self,x):
-        x = x + (self.pe[:,x.shape(1),:]).requires_grad_(False)
+    def forward(self, x):
+        x = x + self.pe[:, :x.shape[1], :]               
+        return self.dropout(x)    
 
 
-class LayerNormalization(nn.Module):
-    def __init__(self):
-        super().__init__()
+
+
+
+
 
 
 class MultiHeadAttentionBlock(nn.Module):
@@ -60,11 +63,11 @@ class MultiHeadAttentionBlock(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
-
-    def attention(self,q,k,v,mask,dropout:nn.Dropout):
+    @staticmethod
+    def attention(q,k,v,mask,dropout:nn.Dropout):
         d_k = q.shape[-1]
 
-        attention_scores = (q @ k.transpose(-2,-1))/ torch.sqrt(d_k)
+        attention_scores = (q @ k.transpose(-2,-1))/ math.sqrt(d_k)
 
         if mask is not None:
             attention_scores.masked_fill_(mask == 0, -1e9)
@@ -119,13 +122,13 @@ class FeedForwardBlock(nn.Module):
 
     def forward(self,x):
 
-        return self.linear_2(self.dropout(torch.relu(self.linear_2(x))))
+        return self.linear_2(self.dropout(torch.relu(self.linear_1(x))))
 
 
 
 class ResidualConnection(nn.Module):
 
-    def __int__(self,features:int,dropout:float):
+    def __init__(self,features:int,dropout:float):
         super().__init__()
 
         self.dropout=nn.Dropout(dropout)
@@ -137,20 +140,19 @@ class ResidualConnection(nn.Module):
 
 
 class EncoderBlock(nn.Module):
-    def __init__(self,self_attention_block:MultiHeadAttentionBlock,feed_forward_block:FeedForwardBlock,dropout:float):
+    def __init__(self,features:int,self_attention_block:MultiHeadAttentionBlock,feed_forward_block:FeedForwardBlock,dropout:float):
         super().__init__()
 
         self.self_attention_block=self_attention_block
         self.feed_forward_block=feed_forward_block
-        self.dropout = nn.Dropout(dropout)
 
-        self.residual_connections = nn.ModuleList([ResidualConnection(dropout)  for _ in 2])
+        self.residual_connections = nn.ModuleList([ResidualConnection(features,dropout)  for _ in range(2)])
 
     def forward(self,x,src_mask):
         x = self.residual_connections[0](x,lambda x:self.self_attention_block(x,x,x,src_mask))
 
-        x = self.residual_connections[1](x,self.feed_forward_block(x))
-
+        x = self.residual_connections[1](x,self.feed_forward_block)
+        return x
 
 class Encoder(nn.Module):
 
