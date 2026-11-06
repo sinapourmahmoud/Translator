@@ -66,7 +66,7 @@ class MultiHeadAttentionBlock(nn.Module):
 
         attention_scores = (q @ k.transpose(-2,-1))/ torch.sqrt(d_k)
 
-        if dropout is not None:
+        if mask is not None:
             attention_scores.masked_fill_(mask == 0, -1e9)
 
         attention_scores = attention_scores.softmax(dim=-1) 
@@ -110,7 +110,20 @@ class LayerNormalization(nn.Module):
         return self.alpha * (x-mean) / (std + self.eps) + self.bias
 
 
-class ResidualLayer(nn.Module):
+class FeedForwardBlock(nn.Module):
+    def __init__(self,d_model:int,dff:int,dropout:float):
+        super().__init__()
+        self.linear_1=nn.Linear(d_model,dff)
+        self.dropout=nn.Dropout(dropout)
+        self.linear_2=nn.Linear(dff,d_model)
+
+    def forward(self,x):
+
+        return self.linear_2(self.dropout(torch.relu(self.linear_2(x))))
+
+
+
+class ResidualConnection(nn.Module):
 
     def __int__(self,features:int,dropout:float):
         super().__init__()
@@ -121,8 +134,6 @@ class ResidualLayer(nn.Module):
 
     def forward(self,x,sublayer):
         return x + self.dropout(sublayer(self.norm(x)))
-
-
 
 
 
