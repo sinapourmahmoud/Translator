@@ -208,4 +208,38 @@ class ProjectionLayer(nn.Module):
         return self.proj(x)
 
 
+class Transformer(nn.Module):
+    def __init__(self,encoder:Encoder,decoder:Decoder,src_embedding:InputEmbeddings,tar_embedding:InputEmbeddings,src_position:PositionalEncoding,tar_position:PositionalEncoding,proj:ProjectionLayer):
+        super().__init__()
+
+        self.encoder=encoder
+        self.decoder=decoder
+        self.src_embedding=src_embedding
+        self.tar_embedding=tar_embedding
+        self.src_position=src_position
+        self.tar_position=tar_position
+        self.projection_layer=proj
+
+    def encode(self,src,src_mask):
+        src = self.src_embedding(src)
+        src = self.src_position(src)
+        return self.encoder(src,src_mask)
+
+    def decode(self, encoder_output: torch.Tensor, src_mask: torch.Tensor, tar: torch.Tensor, tar_mask: torch.Tensor):
+
+        tar = self.tar_embedding(tar)
+        tar = self.tar_position(tar)
+        return self.decoder(tar,encoder_output,src_mask,tar_mask)
+
+    def project(self,x):
+
+        return self.projection_layer(x)
+        
+
+
+        
+
+
+
+
 
