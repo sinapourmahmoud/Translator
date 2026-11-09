@@ -167,6 +167,125 @@ class Encoder(nn.Module):
         return self.norm(x)
 
 
+class DecoderBlock(nn.Module):
+
+    def __init__(self,features:int,self_attention_block:MultiHeadAttentionBlock,cross_attention_block:MultiHeadAttentionBlock,feed_forward_block:FeedForwardBlock,dropout:float):
+        super().__init__()
+
+        self.feed_forward_block=feed_forward_block
+        self.self_attention_block=self_attention_block
+        self.cross_attention_block=cross_attention_block
+
+        self.residual_connections = nn.ModuleList([ResidualConnection(features,dropout) for _ in range(3)])
+
+    def forward(self,x,encoder_output,src_mask,trg_mask):
+        x = self.residual_connections[0](x,lambda x:self.self_attention_block(x,x,x,trg_mask))
+        x = self.residual_connections[1](x,lambda x:self.cross_attention_block(x,encoder_output,encoder_output,src_mask))
+        x = self.residual_connections[2](x,self.feed_forward_block)
+        return x
+
+
+class Decoder(nn.Module):
+
+    def __init__(self, features: int, layers: nn.ModuleList) -> None:
+        super().__init__()
+        self.layers = layers
+        self.norm = LayerNormalization(features)
+
+    def forward(self, x, encoder_output, src_mask, tgt_mask):
+        for layer in self.layers:
+            x = layer(x, encoder_output, src_mask, tgt_mask)
+        return self.norm(x)
+
+
+class ProjectionLayer(nn.Module):
+    def __init__(self,d_model,vocab_size):
+        super().__init__()
+
+        self.proj = nn.Linear(d_model,vocab_size)
+
+    def forward(self,x):
+        return self.proj(x)
+
+
+class Transformer(nn.Module):
+    def __init__(self,encoder:Encoder,decoder:Decoder,src_embedding:InputEmbeddings,tar_embedding:InputEmbeddings,src_position:PositionalEncoding,tar_position:PositionalEncoding,proj:ProjectionLayer):
+        super().__init__()
+
+        self.encoder=encoder
+        self.decoder=decoder
+        self.src_embedding=src_embedding
+        self.tar_embedding=tar_embedding
+        self.src_position=src_position
+        self.tar_position=tar_position
+        self.projection_layer=proj
+
+    def encode(self,src,src_mask):
+        src = self.src_embedding(src)
+        src = self.src_position(src)
+        return self.encoder(src,src_mask)
+
+    def decode(self, encoder_output: torch.Tensor, src_mask: torch.Tensor, tar: torch.Tensor, tar_mask: torch.Tensor):
+
+        tar = self.tar_embedding(tar)
+        tar = self.tar_position(tar)
+        return self.decoder(tar,encoder_output,src_mask,tar_mask)
+
+    def project(self,x):
+
+        return self.projection_layer(x)
+
+
+
+def build_transformer(src_vocab_size:int,tar_vocab_size:int,src_seq_len:int,tar_seq_len:int,d_model:int=512, N: int=6, h: int=8, dropout: float=0.1, d_ff: int=2048):
+
+    src_embed = InputEmbeddings(d_model,src_vocab_size)
+    tar_embed = InputEmbeddings(d_model,tar_vocab_size)
+
+    src_pos = PositionalEncoding(d_model,src_seq_len,dropout)
+    tar_pos = PositionalEncoding(d_model,tar_seq_len,dropout)
+
+
+    encoder_blocks = []
+
+    for _ in range(N):
+
+        encoder_self_attention_block = MultiHeadAttentionBlock(d_model,h,dropout)
+        feed_forward_block = FeedForwardBlock(d_model,d_ff,dropout)
+        encoder_block = EncoderBlock(d_model,encoder_self_attention_block,feed_forward_block,dropout)
+
+        encoder_blocks.append(encoder_block)
+
+    decoder_blocks = []
+
+    for _ in range(N):
+
+        decoder_self_attention_block = MultiHeadAttentionBlock(d_model,h,dropout)
+        decoder_cross_attention_block = MultiHeadAttentionBlock(d_model,h,dropout)
+        feed_forward_block = FeedForwardBlock(d_model,d_ff,dropout)
+        decoder_block = DecoderBlock(d_model,decoder_self_attention_block,decoder_cross_attention_block,feed_forward_block,dropout)
+
+        decoder_blocks.append(decoder_block)
+
+
+    encoder = Encoder(d_model,nn.ModuleList(encoder_blocks))
+    decoder = Decoder(d_model,nn.ModuleList(decoder_blocks))
+
+    projection_layer = ProjectionLayer(d_model,tar_vocab_size)
+
+    transformer = Transformer(encoder,decoder,src_embed,tar_embed,src_pos,tar_pos,projection_layer)
+
+    for p in transformer.parameters():
+        if p.dim()>1:
+            nn.init.xavier_uniform_(p)
+
+    return transformer
+
+
+
+        
+
+
 
 
 
