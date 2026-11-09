@@ -31,14 +31,14 @@ class BilingualDataset(Dataset):
         tar_text = src_target_pair['translation'][self.tar_lang]
 
         enc_input_tokens = self.tokenizer_src.encode(src_text).ids
-        dec_input_tokens = self.tokenizer_src.encode(tar_text).ids
+        dec_input_tokens = self.tokenizer_tar.encode(tar_text).ids
 
 
         enc_num_padding_tokens = self.seq_len - len(enc_input_tokens) - 2
         dec_num_padding_tokens = self.seq_len - len(dec_input_tokens) - 1
 
-        if enc_input_tokens < 0 or dec_input_tokens < 0:
-            assert ValueError("The sentence length is alot")
+        if enc_num_padding_tokens < 0 or dec_num_padding_tokens < 0:
+            raise ValueError("The sentence length is too long")
 
         encoder_input = torch.cat(
             [
