@@ -242,8 +242,8 @@ def build_transformer(src_vocab_size:int,tar_vocab_size:int,src_seq_len:int,tar_
     src_embed = InputEmbeddings(d_model,src_vocab_size)
     tar_embed = InputEmbeddings(d_model,tar_vocab_size)
 
-    src_pos = PositionalEncoding(d_model,src_seq_len)
-    tar_pos = PositionalEncoding(d_model,tar_seq_len)
+    src_pos = PositionalEncoding(d_model,src_seq_len,dropout)
+    tar_pos = PositionalEncoding(d_model,tar_seq_len,dropout)
 
 
     encoder_blocks = []
@@ -275,7 +275,11 @@ def build_transformer(src_vocab_size:int,tar_vocab_size:int,src_seq_len:int,tar_
 
     transformer = Transformer(encoder,decoder,src_embed,tar_embed,src_pos,tar_pos,projection_layer)
 
-    
+    for p in transformer.parameters():
+        if p.dim()>1:
+            nn.init.xavier_uniform_(p)
+
+    return p
 
 
 
