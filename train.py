@@ -33,4 +33,18 @@ def get_or_build_tokenizer(config,ds,lang):
     else:
         tokenizer = Tokenizer.from_file(str(tokenizer_path))
     return tokenizer
-        
+
+
+def get_ds(config):
+    ds_raw = load_dataset('opus_books',f'{config['lang_src']}-{config['lang-tar']}',split='train')
+
+
+    tokenizer_src = get_or_build_tokenizer(config,ds_raw,config['lang_src'])
+    tokenizer_tar = get_or_build_tokenizer(config,ds_raw,config['lang_tar'])
+
+    train_ds_size = 0.9 * len(ds_raw)
+
+    val_ds_size = len(ds_raw) - train_ds_size
+
+    train_ds_raw,val_ds_raw = random_split(ds_raw,[train_ds_size,val_ds_size])
+
