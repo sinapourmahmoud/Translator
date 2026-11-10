@@ -50,19 +50,25 @@ def get_ds(config):
 
     train_ds_raw,val_ds_raw = random_split(ds_raw,[train_ds_size,val_ds_size])
 
-    train_ds = BilingualDataset(train_ds_raw,tokenizer_src,tokenizer_tar,config['lang_src'],config['lang_tar'])
-    val_ds = BilingualDataset(val_ds_raw,tokenizer_src,tokenizer_tar,config['lang_src'],config['lang_tar'])
+    train_ds = BilingualDataset(train_ds_raw,tokenizer_src,tokenizer_tar,config['lang_src'],config['lang_tar'],train_ds_size,config["seq_len"])
+    val_ds = BilingualDataset(val_ds_raw,tokenizer_src,tokenizer_tar,config['lang_src'],config['lang_tar'],config["seq_len"])
 
     max_len_src = 0
     max_len_tar = 0
 
     for item in ds_raw:
 
-        src_len = tokenizer_src.encode(item['translation'][config['lang_src']]).ids
-        tar_len = tokenizer_src.encode(item['translation'][config['lang_tar']]).ids
+        src_ids = tokenizer_src.encode(item['translation'][config['lang_src']]).ids
+        tar_ids = tokenizer_tar.encode(item['translation'][config['lang_tar']]).ids
 
-        max_len_src = max(src_len,max_len_src)
-        max_len_tar = max(tar_len,max_len_tar)
+        max_len_src = max(len(src_ids),max_len_src)
+        max_len_tar = max(len(tar_ids),max_len_tar)
 
+    print(f"the max source sentance length is {max_len_src}")
+    print(f"the max target sentance length is {max_len_tar}")
+
+    train_data_loader = DataLoader(train_ds,batch_size=config["batch_size"],shuffle=True)
+    val_data_loader = DataLoader(val_ds,batch_size=1,shuffle=True)
+    return train_data_loader,val_data_loader,tokenizer_src,tokenizer_tar
 
 
