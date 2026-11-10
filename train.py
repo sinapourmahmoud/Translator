@@ -3,6 +3,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.optim.lr_scheduler import LambdaLR
 
+from dataset import BilingualDataset
+
 import warnings
 from tqdm import tqdm
 import os
@@ -47,4 +49,20 @@ def get_ds(config):
     val_ds_size = len(ds_raw) - train_ds_size
 
     train_ds_raw,val_ds_raw = random_split(ds_raw,[train_ds_size,val_ds_size])
+
+    train_ds = BilingualDataset(train_ds_raw,tokenizer_src,tokenizer_tar,config['lang_src'],config['lang_tar'])
+    val_ds = BilingualDataset(val_ds_raw,tokenizer_src,tokenizer_tar,config['lang_src'],config['lang_tar'])
+
+    max_len_src = 0
+    max_len_tar = 0
+
+    for item in ds_raw:
+
+        src_len = tokenizer_src.encode(item['translation'][config['lang_src']]).ids
+        tar_len = tokenizer_src.encode(item['translation'][config['lang_tar']]).ids
+
+        max_len_src = max(src_len,max_len_src)
+        max_len_tar = max(tar_len,max_len_tar)
+
+
 
