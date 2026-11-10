@@ -5,6 +5,8 @@ from torch.optim.lr_scheduler import LambdaLR
 
 from dataset import BilingualDataset
 
+from model import build_transformer
+
 import warnings
 from tqdm import tqdm
 import os
@@ -69,6 +71,14 @@ def get_ds(config):
 
     train_data_loader = DataLoader(train_ds,batch_size=config["batch_size"],shuffle=True)
     val_data_loader = DataLoader(val_ds,batch_size=1,shuffle=True)
+
+
     return train_data_loader,val_data_loader,tokenizer_src,tokenizer_tar
+
+
+def get_model(config,vocab_src_len,vocab_tar_len):
+
+    model = build_transformer(vocab_src_len,vocab_tar_len,config["seq_len"],config["seq_len"],config["d_model"])
+    return model
 
 
